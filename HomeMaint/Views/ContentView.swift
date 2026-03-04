@@ -44,7 +44,9 @@ struct ContentView: View {
             sidebar
                 .navigationSplitViewColumnWidth(min: 200, ideal: 220, max: 300)
         } detail: {
-            detailView
+            NavigationStack {
+                detailView
+            }
         }
         .toolbar {
             ToolbarItem(placement: .navigation) {
@@ -68,36 +70,71 @@ struct ContentView: View {
     }
 
     private var sidebar: some View {
-        List(selection: $selectedTab) {
+        List {
             Section("Overview") {
-                ForEach([SidebarItem.dashboard]) { item in
-                    NavigationLink(value: item) {
-                        Label(item.rawValue, systemImage: item.icon)
-                            .foregroundStyle(item.color)
-                    }
-                }
+                sidebarButton(for: .dashboard)
             }
 
             Section("Tasks") {
-                ForEach([SidebarItem.allTasks, .overdue, .upcoming]) { item in
-                    NavigationLink(value: item) {
-                        Label(item.rawValue, systemImage: item.icon)
-                            .foregroundStyle(item.color)
-                    }
-                    .badge(item == .overdue ? overdueCount : 0)
-                }
+                sidebarButton(for: .allTasks)
+                sidebarButton(for: .overdue)
+                sidebarButton(for: .upcoming)
             }
 
             Section("Categories") {
                 ForEach(TaskCategory.allCases, id: \.self) { category in
-                    NavigationLink(value: SidebarItem.categories) {
-                        Label(category.rawValue, systemImage: category.icon)
-                            .foregroundStyle(categoryColor(category))
+                    Button {
+                        selectedTab = .categories
+                        selectedCategory = category
+                    } label: {
+                        HStack {
+                            Label(category.rawValue, systemImage: category.icon)
+                                .foregroundStyle(categoryColor(category))
+                            Spacer()
+                        }
                     }
+                    .buttonStyle(SidebarButtonStyle(isSelected: selectedTab == .categories && selectedCategory == category))
                 }
             }
         }
         .listStyle(.sidebar)
+    }
+
+    private func sidebarButton(for item: SidebarItem) -> some View {
+        Button {
+            selectedTab = item
+        } label: {
+            HStack {
+                Label(item.rawValue, systemImage: item.icon)
+                    .foregroundStyle(item.color)
+                Spacer()
+                if item == .overdue {
+                    let count = overdueCount
+                    if count > 0 {
+                        Text("\(count)")
+                            .font(.caption.bold())
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.red)
+                            .clipShape(Capsule())
+                    }
+                }
+            }
+        }
+        .buttonStyle(SidebarButtonStyle(isSelected: selectedTab == item))
+    }
+
+    struct SidebarButtonStyle: ButtonStyle {
+        let isSelected: Bool
+
+        func makeBody(configuration: Configuration) -> some View {
+            configuration.label
+                .padding(.vertical, 4)
+                .padding(.horizontal, 8)
+                .background(isSelected ? Color.accentColor.opacity(0.2) : Color.clear)
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+        }
     }
 
     @ViewBuilder
@@ -105,26 +142,40 @@ struct ContentView: View {
         switch selectedTab {
         case .dashboard:
             DashboardView(taskStore: taskStore)
+                .navigationTitle("Dashboard")
         case .allTasks:
             TaskListView(
                 tasks: filteredTasks(taskStore.fetchActiveTasks()),
                 title: "All Tasks",
                 taskStore: taskStore
             )
+            .navigationTitle("All Tasks")
         case .overdue:
             TaskListView(
                 tasks: filteredTasks(taskStore.fetchOverdueTasks()),
                 title: "Overdue Tasks",
                 taskStore: taskStore
             )
+            .navigationTitle("Overdue Tasks")
         case .upcoming:
             TaskListView(
                 tasks: filteredTasks(taskStore.fetchUpcomingTasks(days: 7)),
                 title: "Due Soon",
                 taskStore: taskStore
             )
+            .navigationTitle("Due Soon")
         case .categories:
-            CategoryGridView(taskStore: taskStore)
+            if let category = selectedCategory {
+                TaskListView(
+                    tasks: taskStore.fetchTasksByCategory(category),
+                    title: category.rawValue,
+                    taskStore: taskStore
+                )
+                .navigationTitle(category.rawValue)
+            } else {
+                CategoryGridView(taskStore: taskStore)
+                    .navigationTitle("Categories")
+            }
         }
     }
 

@@ -3,6 +3,7 @@ import SwiftUI
 struct DashboardView: View {
     let taskStore: TaskStore
     @State private var statistics: TaskStatistics?
+    @State private var selectedTask: MaintenanceTask?
 
     var body: some View {
         ScrollView {
@@ -63,7 +64,7 @@ struct DashboardView: View {
                     Text("Priority Tasks")
                         .font(.title2.bold())
 
-                    PriorityTasksList(taskStore: taskStore)
+                    PriorityTasksList(taskStore: taskStore, selectedTask: $selectedTask)
                 }
             }
             .padding()
@@ -71,6 +72,10 @@ struct DashboardView: View {
         .navigationTitle("Dashboard")
         .onAppear {
             statistics = taskStore.getStatistics()
+        }
+        .sheet(item: $selectedTask) { task in
+            TaskDetailView(task: task, taskStore: taskStore)
+                .frame(minWidth: 500, minHeight: 600)
         }
     }
 }
@@ -163,6 +168,7 @@ struct CompletionRateView: View {
 
 struct PriorityTasksList: View {
     let taskStore: TaskStore
+    @Binding var selectedTask: MaintenanceTask?
 
     var priorityTasks: [MaintenanceTask] {
         let overdue = taskStore.fetchOverdueTasks()
@@ -180,7 +186,12 @@ struct PriorityTasksList: View {
         } else {
             LazyVStack(spacing: 12) {
                 ForEach(priorityTasks.prefix(5), id: \.id) { task in
-                    PriorityTaskRow(task: task)
+                    Button {
+                        selectedTask = task
+                    } label: {
+                        PriorityTaskRow(task: task)
+                    }
+                    .buttonStyle(.plain)
                 }
             }
         }
