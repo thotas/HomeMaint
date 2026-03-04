@@ -35,27 +35,10 @@ struct TaskListView: View {
 
     var body: some View {
         List(sortedTasks, selection: $selectedTask) { task in
-            TaskRow(task: task, taskStore: taskStore)
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    selectedTask = task
-                    showingTaskDetail = true
-                }
-                .contextMenu {
-                    Button(action: { taskStore.markTaskComplete(task) }) {
-                        Label("Mark Complete", systemImage: "checkmark.circle")
-                    }
-
-                    Divider()
-
-                    Button(action: { taskStore.toggleTaskActive(task) }) {
-                        Label(task.isActive ? "Deactivate" : "Activate", systemImage: task.isActive ? "pause.circle" : "play.circle")
-                    }
-
-                    Button(role: .destructive, action: { taskStore.deleteTask(task) }) {
-                        Label("Delete", systemImage: "trash")
-                    }
-                }
+            TaskRow(task: task, taskStore: taskStore, onSelect: {
+                selectedTask = task
+                showingTaskDetail = true
+            })
         }
         .navigationTitle(title)
         .toolbar {
@@ -79,74 +62,84 @@ struct TaskListView: View {
 struct TaskRow: View {
     let task: MaintenanceTask
     let taskStore: TaskStore
+    let onSelect: () -> Void
 
     var body: some View {
         HStack(spacing: 12) {
-            // Completion Status
-            Button(action: { taskStore.markTaskComplete(task) }) {
+            // Completion Status Button
+            Button {
+                taskStore.markTaskComplete(task)
+            } label: {
                 Image(systemName: task.lastCompleted != nil && task.daysUntilDue > 0 ? "checkmark.circle.fill" : "circle")
                     .font(.title2)
                     .foregroundStyle(urgencyColor)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.borderless)
 
-            // Category Icon
-            Image(systemName: task.category.icon)
-                .font(.body)
-                .foregroundStyle(categoryColor)
-                .frame(width: 24)
-
-            // Task Name
-            VStack(alignment: .leading, spacing: 2) {
-                Text(task.name)
+            // Main content area (clickable for detail)
+            HStack(spacing: 12) {
+                // Category Icon
+                Image(systemName: task.category.icon)
                     .font(.body)
-                    .strikethrough(task.lastCompleted != nil && task.daysUntilDue > 0)
+                    .foregroundStyle(categoryColor)
+                    .frame(width: 24)
 
-                HStack(spacing: 4) {
-                    Text(task.category.rawValue)
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
+                // Task Name
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(task.name)
+                        .font(.body)
+                        .strikethrough(task.lastCompleted != nil && task.daysUntilDue > 0)
 
-                    Text("•")
-                        .foregroundStyle(.secondary)
+                    HStack(spacing: 4) {
+                        Text(task.category.rawValue)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
 
-                    Text(task.frequency.rawValue)
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
+                        Text("•")
+                            .foregroundStyle(.secondary)
+
+                        Text(task.frequency.rawValue)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                Spacer()
+
+                // Due Status
+                VStack(alignment: .trailing, spacing: 2) {
+                    if task.isOverdue {
+                        Label("\(-task.daysUntilDue)d overdue", systemImage: "exclamationmark.triangle.fill")
+                            .font(.caption.bold())
+                            .foregroundStyle(.red)
+                    } else if task.daysUntilDue == 0 {
+                        Label("Due today", systemImage: "clock.fill")
+                            .font(.caption.bold())
+                            .foregroundStyle(.orange)
+                    } else if task.daysUntilDue <= 3 {
+                        Label("\(task.daysUntilDue)d left", systemImage: "clock")
+                            .font(.caption.bold())
+                            .foregroundStyle(.yellow)
+                    } else {
+                        Label("\(task.daysUntilDue)d", systemImage: "calendar")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    if let lastCompleted = task.lastCompleted {
+                        Text("Last: \(lastCompleted, style: .date)")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Text("Never done")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
-
-            Spacer()
-
-            // Due Status
-            VStack(alignment: .trailing, spacing: 2) {
-                if task.isOverdue {
-                    Label("\(-task.daysUntilDue)d overdue", systemImage: "exclamationmark.triangle.fill")
-                        .font(.caption.bold())
-                        .foregroundStyle(.red)
-                } else if task.daysUntilDue == 0 {
-                    Label("Due today", systemImage: "clock.fill")
-                        .font(.caption.bold())
-                        .foregroundStyle(.orange)
-                } else if task.daysUntilDue <= 3 {
-                    Label("\(task.daysUntilDue)d left", systemImage: "clock")
-                        .font(.caption.bold())
-                        .foregroundStyle(.yellow)
-                } else {
-                    Label("\(task.daysUntilDue)d", systemImage: "calendar")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-
-                if let lastCompleted = task.lastCompleted {
-                    Text("Last: \(lastCompleted, style: .date)")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                } else {
-                    Text("Never done")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
+            .contentShape(Rectangle())
+            .onTapGesture {
+                onSelect()
             }
         }
         .padding(.vertical, 4)

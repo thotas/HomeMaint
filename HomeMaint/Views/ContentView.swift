@@ -90,11 +90,10 @@ struct ContentView: View {
 
             Section("Categories") {
                 ForEach(TaskCategory.allCases, id: \.self) { category in
-                    Button(action: { selectedCategory = category }) {
+                    NavigationLink(value: SidebarItem.categories) {
                         Label(category.rawValue, systemImage: category.icon)
                             .foregroundStyle(categoryColor(category))
                     }
-                    .buttonStyle(.plain)
                 }
             }
         }
@@ -169,10 +168,12 @@ struct CategoryGridView: View {
         ScrollView {
             LazyVGrid(columns: columns, spacing: 16) {
                 ForEach(TaskCategory.allCases, id: \.self) { category in
-                    CategoryCard(category: category, taskStore: taskStore)
-                        .onTapGesture {
-                            selectedCategory = TaskCategoryWrapper(category: category)
-                        }
+                    Button {
+                        selectedCategory = TaskCategoryWrapper(category: category)
+                    } label: {
+                        CategoryCard(category: category, taskStore: taskStore)
+                    }
+                    .buttonStyle(.plain)
                 }
             }
             .padding()
