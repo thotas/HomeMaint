@@ -6,68 +6,87 @@ struct DashboardView: View {
     @State private var selectedTask: MaintenanceTask?
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 24) {
-                // Header
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Home Maintenance")
-                        .font(.largeTitle.bold())
-                    Text("Track and manage your home maintenance tasks")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
+        ZStack {
+            // Dark background gradient
+            Color.black.opacity(0.2)
+                .ignoresSafeArea()
 
-                // Statistics Cards
-                if let stats = statistics {
-                    LazyVGrid(columns: [
-                        GridItem(.flexible()),
-                        GridItem(.flexible()),
-                        GridItem(.flexible()),
-                        GridItem(.flexible())
-                    ], spacing: 16) {
-                        StatCard(
-                            title: "Total",
-                            value: stats.totalTasks,
-                            icon: "list.bullet",
-                            color: .blue
-                        )
+            ScrollView {
+                VStack(spacing: 24) {
+                    // Header
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack(spacing: 12) {
+                            Image(systemName: "house.fill")
+                                .font(.largeTitle)
+                                .foregroundStyle(.indigo)
 
-                        StatCard(
-                            title: "Overdue",
-                            value: stats.overdueCount,
-                            icon: "exclamationmark.triangle.fill",
-                            color: .red
-                        )
+                            Text("HomeMaint")
+                                .font(.largeTitle.bold())
+                        }
 
-                        StatCard(
-                            title: "Due Soon",
-                            value: stats.dueSoonCount,
-                            icon: "clock.fill",
-                            color: .orange
-                        )
+                        Text("Track and manage your home maintenance tasks")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.bottom, 8)
 
-                        StatCard(
-                            title: "Healthy",
-                            value: stats.normalCount + stats.upcomingCount,
-                            icon: "checkmark.circle.fill",
-                            color: .green
-                        )
+                    // Statistics Cards
+                    if let stats = statistics {
+                        LazyVGrid(columns: [
+                            GridItem(.flexible()),
+                            GridItem(.flexible()),
+                            GridItem(.flexible()),
+                            GridItem(.flexible())
+                        ], spacing: 16) {
+                            StatCard(
+                                title: "Total",
+                                value: stats.totalTasks,
+                                icon: "list.bullet",
+                                color: .indigo
+                            )
+
+                            StatCard(
+                                title: "Overdue",
+                                value: stats.overdueCount,
+                                icon: "exclamationmark.triangle.fill",
+                                color: .red
+                            )
+
+                            StatCard(
+                                title: "Due Soon",
+                                value: stats.dueSoonCount,
+                                icon: "clock.fill",
+                                color: .orange
+                            )
+
+                            StatCard(
+                                title: "Healthy",
+                                value: stats.normalCount + stats.upcomingCount,
+                                icon: "checkmark.circle.fill",
+                                color: .green
+                            )
+                        }
+
+                        // Completion Rate
+                        CompletionRateView(rate: stats.completionRate)
                     }
 
-                    // Completion Rate
-                    CompletionRateView(rate: stats.completionRate)
-                }
+                    // Priority Tasks Section
+                    VStack(alignment: .leading, spacing: 16) {
+                        HStack {
+                            Image(systemName: "flag.fill")
+                                .foregroundStyle(.orange)
+                            Text("Priority Tasks")
+                                .font(.title2.bold())
+                            Spacer()
+                        }
 
-                // Priority Tasks Section
-                VStack(alignment: .leading, spacing: 16) {
-                    Text("Priority Tasks")
-                        .font(.title2.bold())
-
-                    PriorityTasksList(taskStore: taskStore, selectedTask: $selectedTask)
+                        PriorityTasksList(taskStore: taskStore, selectedTask: $selectedTask)
+                    }
                 }
+                .padding()
             }
-            .padding()
         }
         .navigationTitle("Dashboard")
         .onAppear {
@@ -97,22 +116,25 @@ struct StatCard: View {
             }
 
             Text("\(value)")
-                .font(.system(size: 36, weight: .bold))
-                .foregroundStyle(.primary)
+                .font(.system(size: 40, weight: .bold))
+                .foregroundStyle(.white)
 
             Text(title)
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.gray)
         }
         .padding()
         .frame(height: 140)
         .frame(maxWidth: .infinity)
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-        .overlay(
+        .background(
             RoundedRectangle(cornerRadius: 16)
-                .stroke(color.opacity(0.3), lineWidth: 1)
+                .fill(Color.black.opacity(0.3))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(color.opacity(0.4), lineWidth: 1.5)
+                )
         )
+        .shadow(color: color.opacity(0.2), radius: 8, x: 0, y: 4)
     }
 }
 
@@ -122,8 +144,11 @@ struct CompletionRateView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
+                Image(systemName: "chart.line.uptrend.xyaxis")
+                    .foregroundStyle(.indigo)
                 Text("Completion Rate")
                     .font(.headline)
+                    .foregroundStyle(.white)
 
                 Spacer()
 
@@ -135,19 +160,26 @@ struct CompletionRateView: View {
             GeometryReader { geometry in
                 ZStack(alignment: .leading) {
                     RoundedRectangle(cornerRadius: 8)
-                        .fill(.quaternary)
+                        .fill(Color.gray.opacity(0.2))
                         .frame(height: 16)
 
                     RoundedRectangle(cornerRadius: 8)
                         .fill(rateGradient)
-                        .frame(width: geometry.size.width * rate, height: 16)
+                        .frame(width: max(0, min(geometry.size.width, geometry.size.width * rate)), height: 16)
+                        .shadow(color: rateColor.opacity(0.5), radius: 4, x: 0, y: 0)
                 }
             }
             .frame(height: 16)
         }
         .padding()
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color.black.opacity(0.3))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+                )
+        )
     }
 
     private var rateColor: Color {
@@ -206,7 +238,7 @@ struct PriorityTaskRow: View {
             // Category Icon
             ZStack {
                 Circle()
-                    .fill(categoryColor.opacity(0.2))
+                    .fill(categoryColor.opacity(0.15))
                     .frame(width: 48, height: 48)
 
                 Image(systemName: task.category.icon)
@@ -218,18 +250,19 @@ struct PriorityTaskRow: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(task.name)
                     .font(.headline)
+                    .foregroundStyle(.white)
 
                 HStack(spacing: 8) {
                     Text(task.category.rawValue)
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.gray)
 
                     Text("•")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.gray)
 
                     Text(task.frequency.rawValue)
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.gray)
                 }
             }
 
@@ -238,27 +271,30 @@ struct PriorityTaskRow: View {
             // Due Date
             VStack(alignment: .trailing, spacing: 4) {
                 if task.isOverdue {
-                    Text("\(-task.daysUntilDue) days overdue")
+                    Label("\(-task.daysUntilDue) days overdue", systemImage: "exclamationmark.triangle.fill")
                         .font(.caption.bold())
                         .foregroundStyle(.red)
                 } else {
-                    Text(task.daysUntilDue == 0 ? "Due today" : "Due in \(task.daysUntilDue) days")
+                    Label(task.daysUntilDue == 0 ? "Due today" : "Due in \(task.daysUntilDue) days", systemImage: "clock")
                         .font(.caption.bold())
                         .foregroundStyle(.orange)
                 }
 
                 Text(task.nextDue, style: .date)
                     .font(.caption2)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.gray)
             }
         }
         .padding()
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .overlay(
+        .background(
             RoundedRectangle(cornerRadius: 12)
-                .stroke(task.isOverdue ? Color.red.opacity(0.3) : Color.orange.opacity(0.3), lineWidth: 1)
+                .fill(Color.black.opacity(0.3))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(task.isOverdue ? Color.red.opacity(0.5) : Color.orange.opacity(0.5), lineWidth: 1.5)
+                )
         )
+        .shadow(color: task.isOverdue ? Color.red.opacity(0.1) : Color.orange.opacity(0.1), radius: 4, x: 0, y: 2)
     }
 
     private var categoryColor: Color {

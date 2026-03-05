@@ -130,10 +130,17 @@ struct ContentView: View {
 
         func makeBody(configuration: Configuration) -> some View {
             configuration.label
-                .padding(.vertical, 4)
-                .padding(.horizontal, 8)
-                .background(isSelected ? Color.accentColor.opacity(0.2) : Color.clear)
-                .clipShape(RoundedRectangle(cornerRadius: 6))
+                .padding(.vertical, 6)
+                .padding(.horizontal, 10)
+                .background(
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(isSelected ? Color.indigo.opacity(0.3) : Color.clear)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(isSelected ? Color.indigo.opacity(0.5) : Color.clear, lineWidth: 1)
+                        )
+                )
+                .foregroundStyle(isSelected ? .white : .primary)
         }
     }
 
@@ -275,28 +282,35 @@ struct CategoryCard: View {
                         .foregroundStyle(.white)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
-                        .background(Color.red)
+                        .background(Color.red.opacity(0.8))
                         .clipShape(Capsule())
                 }
             }
 
             Text(category.rawValue)
                 .font(.headline)
-                .foregroundStyle(.primary)
+                .foregroundStyle(.white)
 
             Text("\(taskCount) tasks")
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.white.opacity(0.6))
         }
         .padding()
         .frame(height: 120)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.black.opacity(0.3))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(categoryColor.opacity(0.1))
+                )
+        )
         .overlay(
             RoundedRectangle(cornerRadius: 12)
-                .stroke(categoryColor.opacity(0.3), lineWidth: 1)
+                .stroke(categoryColor.opacity(0.4), lineWidth: 1.5)
         )
+        .shadow(color: categoryColor.opacity(0.15), radius: 6, x: 0, y: 3)
     }
 
     private var categoryColor: Color {

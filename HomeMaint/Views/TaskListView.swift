@@ -79,28 +79,34 @@ struct TaskRow: View {
             // Main content area (clickable for detail)
             HStack(spacing: 12) {
                 // Category Icon
-                Image(systemName: task.category.icon)
-                    .font(.body)
-                    .foregroundStyle(categoryColor)
-                    .frame(width: 24)
+                ZStack {
+                    Circle()
+                        .fill(categoryColor.opacity(0.15))
+                        .frame(width: 32, height: 32)
+
+                    Image(systemName: task.category.icon)
+                        .font(.caption)
+                        .foregroundStyle(categoryColor)
+                }
 
                 // Task Name
                 VStack(alignment: .leading, spacing: 2) {
                     Text(task.name)
                         .font(.body)
+                        .foregroundStyle(.white)
                         .strikethrough(task.lastCompleted != nil && task.daysUntilDue > 0)
 
                     HStack(spacing: 4) {
                         Text(task.category.rawValue)
                             .font(.caption2)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(.gray)
 
                         Text("•")
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(.gray)
 
                         Text(task.frequency.rawValue)
                             .font(.caption2)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(.gray)
                     }
                 }
 
@@ -123,17 +129,17 @@ struct TaskRow: View {
                     } else {
                         Label("\(task.daysUntilDue)d", systemImage: "calendar")
                             .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(.gray)
                     }
 
                     if let lastCompleted = task.lastCompleted {
                         Text("Last: \(lastCompleted, style: .date)")
                             .font(.caption2)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(.gray)
                     } else {
                         Text("Never done")
                             .font(.caption2)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(.gray)
                     }
                 }
             }

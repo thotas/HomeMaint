@@ -23,9 +23,11 @@ struct HomeMaintApp: App {
         WindowGroup {
             ContentView()
                 .frame(minWidth: 1000, minHeight: 700)
+                .preferredColorScheme(.dark)
         }
         .modelContainer(container)
         .windowResizability(.contentSize)
+        .defaultSize(width: 1200, height: 800)
         .commands {
             CommandMenu("Tasks") {
                 Button("New Task") {
