@@ -1,4 +1,5 @@
 import SwiftUI
+import SwiftData
 
 struct TaskListView: View {
     let tasks: [MaintenanceTask]
@@ -23,7 +24,11 @@ struct TaskListView: View {
         case .name:
             return tasks.sorted { $0.name < $1.name }
         case .category:
-            return tasks.sorted { $0.category.rawValue < $1.category.rawValue }
+            return tasks.sorted { (task1, task2) in
+                let name1 = task1.getCategory(from: taskStore)?.name ?? ""
+                let name2 = task2.getCategory(from: taskStore)?.name ?? ""
+                return name1 < name2
+            }
         case .lastCompleted:
             return tasks.sorted {
                 guard let lhs = $0.lastCompleted else { return false }
@@ -64,6 +69,10 @@ struct TaskRow: View {
     let taskStore: TaskStore
     let onSelect: () -> Void
 
+    var category: Category? {
+        task.getCategory(from: taskStore)
+    }
+
     var body: some View {
         HStack(spacing: 12) {
             // Completion Status Button
@@ -81,12 +90,12 @@ struct TaskRow: View {
                 // Category Icon
                 ZStack {
                     Circle()
-                        .fill(categoryColor.opacity(0.15))
+                        .fill((category?.color.swiftColor ?? .gray).opacity(0.15))
                         .frame(width: 32, height: 32)
 
-                    Image(systemName: task.category.icon)
+                    Image(systemName: category?.icon ?? "tag.fill")
                         .font(.caption)
-                        .foregroundStyle(categoryColor)
+                        .foregroundStyle(category?.color.swiftColor ?? .gray)
                 }
 
                 // Task Name
@@ -97,7 +106,7 @@ struct TaskRow: View {
                         .strikethrough(task.lastCompleted != nil && task.daysUntilDue > 0)
 
                     HStack(spacing: 4) {
-                        Text(task.category.rawValue)
+                        Text(category?.name ?? "Unknown")
                             .font(.caption2)
                             .foregroundStyle(.gray)
 
@@ -157,21 +166,6 @@ struct TaskRow: View {
         case .dueSoon: return .orange
         case .upcoming: return .yellow
         case .normal: return .green
-        }
-    }
-
-    private var categoryColor: Color {
-        switch task.category {
-        case .hvac: return .cyan
-        case .plumbing: return .blue
-        case .electrical: return .yellow
-        case .exterior: return .brown
-        case .interior: return .purple
-        case .appliances: return .gray
-        case .safety: return .red
-        case .yard: return .green
-        case .cleaning: return .mint
-        case .other: return .indigo
         }
     }
 }

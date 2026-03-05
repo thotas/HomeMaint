@@ -1,12 +1,13 @@
 import SwiftUI
 
 struct AddTaskView: View {
+    let taskStore: TaskStore
     let onSave: (MaintenanceTask) -> Void
     @Environment(\.dismiss) private var dismiss
 
     @State private var name = ""
     @State private var description = ""
-    @State private var selectedCategory: TaskCategory = .interior
+    @State private var selectedCategory: Category?
     @State private var selectedFrequency: TaskFrequency = .monthly
     @State private var lastCompleted: Date?
     @State private var hasLastCompleted = false
@@ -15,68 +16,74 @@ struct AddTaskView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section("Task Details") {
-                    TextField("Task Name", text: $name)
-                        .font(.body)
+            ZStack {
+                Color.black.opacity(0.2)
+                    .ignoresSafeArea()
 
-                    TextField("Description", text: $description, axis: .vertical)
-                        .lineLimit(3...6)
-                }
+                Form {
+                    Section("Task Details") {
+                        TextField("Task Name", text: $name)
+                            .font(.body)
+                            .foregroundStyle(.white)
 
-                Section("Category") {
-                    Picker("Category", selection: $selectedCategory) {
-                        ForEach(TaskCategory.allCases, id: \.self) { category in
-                            Label(category.rawValue, systemImage: category.icon)
-                                .tag(category)
-                        }
-                    }
-                    .pickerStyle(.menu)
-                }
-
-                Section("Frequency") {
-                    Picker("How Often", selection: $selectedFrequency) {
-                        ForEach(TaskFrequency.allCases, id: \.self) { frequency in
-                            Text(frequency.rawValue)
-                                .tag(frequency)
-                        }
-                    }
-                    .pickerStyle(.menu)
-
-                    HStack {
-                        Text("Estimated Duration")
-                        Spacer()
-                        Text("\(estimatedDuration) min")
-                            .foregroundStyle(.secondary)
+                        TextField("Description", text: $description, axis: .vertical)
+                            .lineLimit(3...6)
+                            .foregroundStyle(.white)
                     }
 
-                    Slider(value: .init(
-                        get: { Double(estimatedDuration) },
-                        set: { estimatedDuration = Int($0) }
-                    ), in: 5...240, step: 5)
-                }
-
-                Section("Schedule") {
-                    Toggle("Already Completed", isOn: $hasLastCompleted)
-
-                    if hasLastCompleted {
-                        DatePicker(
-                            "Last Completed",
-                            selection: .init(
-                                get: { lastCompleted ?? Date() },
-                                set: { lastCompleted = $0 }
-                            ),
-                            displayedComponents: .date
+                    Section("Category") {
+                        CategoryPicker(
+                            taskStore: taskStore,
+                            selectedCategory: $selectedCategory
                         )
                     }
-                }
 
-                Section("Notes") {
-                    TextField("Additional notes...", text: $notes, axis: .vertical)
-                        .lineLimit(3...6)
+                    Section("Frequency") {
+                        Picker("How Often", selection: $selectedFrequency) {
+                            ForEach(TaskFrequency.allCases, id: \.self) { frequency in
+                                Text(frequency.rawValue)
+                                    .tag(frequency)
+                            }
+                        }
+                        .pickerStyle(.menu)
+
+                        HStack {
+                            Text("Estimated Duration")
+                            Spacer()
+                            Text("\(estimatedDuration) min")
+                                .foregroundStyle(.gray)
+                        }
+
+                        Slider(value: .init(
+                            get: { Double(estimatedDuration) },
+                            set: { estimatedDuration = Int($0) }
+                        ), in: 5...240, step: 5)
+                    }
+
+                    Section("Schedule") {
+                        Toggle("Already Completed", isOn: $hasLastCompleted)
+
+                        if hasLastCompleted {
+                            DatePicker(
+                                "Last Completed",
+                                selection: .init(
+                                    get: { lastCompleted ?? Date() },
+                                    set: { lastCompleted = $0 }
+                                ),
+                                displayedComponents: .date
+                            )
+                        }
+                    }
+
+                    Section("Notes") {
+                        TextField("Additional notes...", text: $notes, axis: .vertical)
+                            .lineLimit(3...6)
+                            .foregroundStyle(.white)
+                    }
                 }
+                .formStyle(.grouped)
+                .scrollContentBackground(.hidden)
             }
-            .formStyle(.grouped)
             .navigationTitle("New Task")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -100,7 +107,7 @@ struct AddTaskView: View {
         let task = MaintenanceTask(
             name: name,
             taskDescription: description,
-            category: selectedCategory,
+            categoryID: selectedCategory?.id,
             frequency: selectedFrequency,
             lastCompleted: hasLastCompleted ? lastCompleted : nil,
             notes: notes,
@@ -110,14 +117,52 @@ struct AddTaskView: View {
     }
 }
 
+struct CategoryPicker: View {
+    let taskStore: TaskStore
+    @Binding var selectedCategory: Category?
+
+    var categories: [Category] {
+        taskStore.fetchActiveCategories()
+    }
+
+    var body: some View {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 120))], spacing: 12) {
+            ForEach(categories) { category in
+                Button {
+                    selectedCategory = category
+                } label: {
+                    VStack(spacing: 8) {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(selectedCategory?.id == category.id ? category.color.swiftColor : category.color.swiftColor.opacity(0.2))
+                                .frame(height: 50)
+
+                            Image(systemName: category.icon)
+                                .font(.title2)
+                                .foregroundStyle(selectedCategory?.id == category.id ? .white : category.color.swiftColor)
+                        }
+
+                        Text(category.name)
+                            .font(.caption)
+                            .foregroundStyle(selectedCategory?.id == category.id ? category.color.swiftColor : .white)
+                    }
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.vertical, 8)
+    }
+}
+
 struct EditTaskView: View {
     @Bindable var task: MaintenanceTask
     let taskStore: TaskStore
     let onComplete: () -> Void
+    @Environment(\.dismiss) private var dismiss
 
     @State private var name: String
     @State private var description: String
-    @State private var selectedCategory: TaskCategory
+    @State private var selectedCategory: Category?
     @State private var selectedFrequency: TaskFrequency
     @State private var estimatedDuration: Int
     @State private var notes: String
@@ -131,7 +176,7 @@ struct EditTaskView: View {
 
         _name = State(initialValue: task.name)
         _description = State(initialValue: task.taskDescription)
-        _selectedCategory = State(initialValue: task.category)
+        _selectedCategory = State(initialValue: task.getCategory(from: taskStore))
         _selectedFrequency = State(initialValue: task.frequency)
         _estimatedDuration = State(initialValue: task.estimatedDuration)
         _notes = State(initialValue: task.notes)
@@ -141,68 +186,74 @@ struct EditTaskView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section("Task Details") {
-                    TextField("Task Name", text: $name)
-                        .font(.body)
+            ZStack {
+                Color.black.opacity(0.2)
+                    .ignoresSafeArea()
 
-                    TextField("Description", text: $description, axis: .vertical)
-                        .lineLimit(3...6)
-                }
+                Form {
+                    Section("Task Details") {
+                        TextField("Task Name", text: $name)
+                            .font(.body)
+                            .foregroundStyle(.white)
 
-                Section("Category") {
-                    Picker("Category", selection: $selectedCategory) {
-                        ForEach(TaskCategory.allCases, id: \.self) { category in
-                            Label(category.rawValue, systemImage: category.icon)
-                                .tag(category)
-                        }
-                    }
-                    .pickerStyle(.menu)
-                }
-
-                Section("Frequency") {
-                    Picker("How Often", selection: $selectedFrequency) {
-                        ForEach(TaskFrequency.allCases, id: \.self) { frequency in
-                            Text(frequency.rawValue)
-                                .tag(frequency)
-                        }
-                    }
-                    .pickerStyle(.menu)
-
-                    HStack {
-                        Text("Estimated Duration")
-                        Spacer()
-                        Text("\(estimatedDuration) min")
-                            .foregroundStyle(.secondary)
+                        TextField("Description", text: $description, axis: .vertical)
+                            .lineLimit(3...6)
+                            .foregroundStyle(.white)
                     }
 
-                    Slider(value: .init(
-                        get: { Double(estimatedDuration) },
-                        set: { estimatedDuration = Int($0) }
-                    ), in: 5...240, step: 5)
-                }
-
-                Section("Schedule") {
-                    Toggle("Already Completed", isOn: $hasLastCompleted)
-
-                    if hasLastCompleted {
-                        DatePicker(
-                            "Last Completed",
-                            selection: .init(
-                                get: { lastCompleted ?? Date() },
-                                set: { lastCompleted = $0 }
-                            ),
-                            displayedComponents: .date
+                    Section("Category") {
+                        CategoryPicker(
+                            taskStore: taskStore,
+                            selectedCategory: $selectedCategory
                         )
                     }
-                }
 
-                Section("Notes") {
-                    TextField("Additional notes...", text: $notes, axis: .vertical)
-                        .lineLimit(3...6)
+                    Section("Frequency") {
+                        Picker("How Often", selection: $selectedFrequency) {
+                            ForEach(TaskFrequency.allCases, id: \.self) { frequency in
+                                Text(frequency.rawValue)
+                                    .tag(frequency)
+                            }
+                        }
+                        .pickerStyle(.menu)
+
+                        HStack {
+                            Text("Estimated Duration")
+                            Spacer()
+                            Text("\(estimatedDuration) min")
+                                .foregroundStyle(.gray)
+                        }
+
+                        Slider(value: .init(
+                            get: { Double(estimatedDuration) },
+                            set: { estimatedDuration = Int($0) }
+                        ), in: 5...240, step: 5)
+                    }
+
+                    Section("Schedule") {
+                        Toggle("Already Completed", isOn: $hasLastCompleted)
+
+                        if hasLastCompleted {
+                            DatePicker(
+                                "Last Completed",
+                                selection: .init(
+                                    get: { lastCompleted ?? Date() },
+                                    set: { lastCompleted = $0 }
+                                ),
+                                displayedComponents: .date
+                            )
+                        }
+                    }
+
+                    Section("Notes") {
+                        TextField("Additional notes...", text: $notes, axis: .vertical)
+                            .lineLimit(3...6)
+                            .foregroundStyle(.white)
+                    }
                 }
+                .formStyle(.grouped)
+                .scrollContentBackground(.hidden)
             }
-            .formStyle(.grouped)
             .navigationTitle("Edit Task")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -225,7 +276,7 @@ struct EditTaskView: View {
     private func updateTask() {
         task.name = name
         task.taskDescription = description
-        task.category = selectedCategory
+        task.categoryID = selectedCategory?.id
         task.frequency = selectedFrequency
         task.estimatedDuration = estimatedDuration
         task.notes = notes

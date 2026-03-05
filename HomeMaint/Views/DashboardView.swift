@@ -1,4 +1,5 @@
 import SwiftUI
+import SwiftData
 
 struct DashboardView: View {
     let taskStore: TaskStore
@@ -83,6 +84,19 @@ struct DashboardView: View {
                         }
 
                         PriorityTasksList(taskStore: taskStore, selectedTask: $selectedTask)
+                    }
+
+                    // Categories Overview
+                    VStack(alignment: .leading, spacing: 16) {
+                        HStack {
+                            Image(systemName: "folder.fill")
+                                .foregroundStyle(.indigo)
+                            Text("Categories")
+                                .font(.title2.bold())
+                            Spacer()
+                        }
+
+                        CategoriesOverview(taskStore: taskStore)
                     }
                 }
                 .padding()
@@ -221,7 +235,7 @@ struct PriorityTasksList: View {
                     Button {
                         selectedTask = task
                     } label: {
-                        PriorityTaskRow(task: task)
+                        PriorityTaskRow(task: task, taskStore: taskStore)
                     }
                     .buttonStyle(.plain)
                 }
@@ -232,18 +246,23 @@ struct PriorityTasksList: View {
 
 struct PriorityTaskRow: View {
     let task: MaintenanceTask
+    let taskStore: TaskStore
+
+    var category: Category? {
+        task.getCategory(from: taskStore)
+    }
 
     var body: some View {
         HStack(spacing: 16) {
             // Category Icon
             ZStack {
                 Circle()
-                    .fill(categoryColor.opacity(0.15))
+                    .fill((category?.color.swiftColor ?? .gray).opacity(0.15))
                     .frame(width: 48, height: 48)
 
-                Image(systemName: task.category.icon)
+                Image(systemName: category?.icon ?? "tag.fill")
                     .font(.title3)
-                    .foregroundStyle(categoryColor)
+                    .foregroundStyle(category?.color.swiftColor ?? .gray)
             }
 
             // Task Info
@@ -253,7 +272,7 @@ struct PriorityTaskRow: View {
                     .foregroundStyle(.white)
 
                 HStack(spacing: 8) {
-                    Text(task.category.rawValue)
+                    Text(category?.name ?? "Unknown")
                         .font(.caption)
                         .foregroundStyle(.gray)
 
@@ -296,20 +315,79 @@ struct PriorityTaskRow: View {
         )
         .shadow(color: task.isOverdue ? Color.red.opacity(0.1) : Color.orange.opacity(0.1), radius: 4, x: 0, y: 2)
     }
+}
 
-    private var categoryColor: Color {
-        switch task.category {
-        case .hvac: return .cyan
-        case .plumbing: return .blue
-        case .electrical: return .yellow
-        case .exterior: return .brown
-        case .interior: return .purple
-        case .appliances: return .gray
-        case .safety: return .red
-        case .yard: return .green
-        case .cleaning: return .mint
-        case .other: return .indigo
+struct CategoriesOverview: View {
+    let taskStore: TaskStore
+
+    var body: some View {
+        let categories = taskStore.fetchActiveCategories()
+        if categories.isEmpty {
+            EmptyStateView(
+                icon: "folder.badge.questionmark",
+                title: "No categories",
+                message: "Add categories to organize your tasks."
+            )
+        } else {
+            LazyVStack(spacing: 8) {
+                ForEach(categories.prefix(5)) { category in
+                    CategoryOverviewRow(category: category, taskStore: taskStore)
+                }
+            }
         }
+    }
+}
+
+struct CategoryOverviewRow: View {
+    let category: Category
+    let taskStore: TaskStore
+
+    var taskCount: Int {
+        taskStore.getCategoryTaskCount(category)
+    }
+
+    var overdueCount: Int {
+        taskStore.getCategoryOverdueCount(category)
+    }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: category.icon)
+                .font(.title3)
+                .foregroundStyle(category.color.swiftColor)
+                .frame(width: 32, height: 32)
+                .background(
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(category.color.swiftColor.opacity(0.15))
+                )
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(category.name)
+                    .font(.body.bold())
+                    .foregroundStyle(.white)
+
+                Text("\(taskCount) tasks")
+                    .font(.caption)
+                    .foregroundStyle(.gray)
+            }
+
+            Spacer()
+
+            if overdueCount > 0 {
+                Text("\(overdueCount)")
+                    .font(.caption.bold())
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color.red.opacity(0.8))
+                    .clipShape(Capsule())
+            }
+        }
+        .padding()
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(Color.black.opacity(0.2))
+        )
     }
 }
 

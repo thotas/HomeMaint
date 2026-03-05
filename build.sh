@@ -11,6 +11,7 @@ APP_BUNDLE="${APP_NAME}.app"
 CONTENTS="${APP_BUNDLE}/Contents"
 MACOS_DIR="${CONTENTS}/MacOS"
 RESOURCES_DIR="${CONTENTS}/Resources"
+ICON_SOURCE="HomeMaint.png"
 
 echo "Building ${APP_NAME}..."
 
@@ -77,6 +78,21 @@ EOF
 
 # Create PkgInfo
 echo "APPL????" > "${CONTENTS}/PkgInfo"
+
+if [ -f "${ICON_SOURCE}" ]; then
+    echo "Generating app icon from ${ICON_SOURCE}..."
+    ICONSET_DIR="$(mktemp -d)/AppIcon.iconset"
+    mkdir -p "${ICONSET_DIR}"
+
+    for size in 16 32 128 256 512; do
+        sips -z "${size}" "${size}" "${ICON_SOURCE}" --out "${ICONSET_DIR}/icon_${size}x${size}.png" >/dev/null
+        retina_size=$((size * 2))
+        sips -z "${retina_size}" "${retina_size}" "${ICON_SOURCE}" --out "${ICONSET_DIR}/icon_${size}x${size}@2x.png" >/dev/null
+    done
+
+    iconutil -c icns "${ICONSET_DIR}" -o "${RESOURCES_DIR}/AppIcon.icns"
+    rm -rf "$(dirname "${ICONSET_DIR}")"
+fi
 
 echo "Build complete: ${APP_BUNDLE}"
 echo "To run: open ${APP_BUNDLE}"

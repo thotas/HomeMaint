@@ -4,9 +4,10 @@ import SwiftData
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var taskStore = TaskStore()
-    @State private var selectedCategory: TaskCategory?
+    @State private var selectedCategory: Category?
     @State private var selectedTab: SidebarItem = .dashboard
     @State private var showingAddTask = false
+    @State private var showingManageCategories = false
     @State private var searchText = ""
 
     enum SidebarItem: String, CaseIterable, Identifiable {
@@ -15,6 +16,7 @@ struct ContentView: View {
         case overdue = "Overdue"
         case upcoming = "Due Soon"
         case categories = "Categories"
+        case manageCategories = "Manage Categories"
 
         var id: String { rawValue }
 
@@ -25,6 +27,7 @@ struct ContentView: View {
             case .overdue: return "exclamationmark.triangle.fill"
             case .upcoming: return "calendar.badge.clock"
             case .categories: return "folder.fill"
+            case .manageCategories: return "gearshape.2.fill"
             }
         }
 
@@ -35,6 +38,7 @@ struct ContentView: View {
             case .overdue: return .red
             case .upcoming: return .orange
             case .categories: return .green
+            case .manageCategories: return .gray
             }
         }
     }
@@ -57,10 +61,13 @@ struct ContentView: View {
             }
         }
         .sheet(isPresented: $showingAddTask) {
-            AddTaskView { task in
+            AddTaskView(taskStore: taskStore) { task in
                 taskStore.addTask(task)
                 showingAddTask = false
             }
+        }
+        .sheet(isPresented: $showingManageCategories) {
+            ManageCategoriesView(taskStore: taskStore)
         }
         .onAppear {
             taskStore.setContext(modelContext)
@@ -82,27 +89,40 @@ struct ContentView: View {
             }
 
             Section("Categories") {
-                ForEach(TaskCategory.allCases, id: \.self) { category in
-                    Button {
-                        selectedTab = .categories
-                        selectedCategory = category
-                    } label: {
-                        HStack {
-                            Label(category.rawValue, systemImage: category.icon)
-                                .foregroundStyle(categoryColor(category))
-                            Spacer()
-                        }
-                    }
-                    .buttonStyle(SidebarButtonStyle(isSelected: selectedTab == .categories && selectedCategory == category))
-                }
+                categoryButtons
+            }
+
+            Section("Settings") {
+                sidebarButton(for: .manageCategories)
             }
         }
         .listStyle(.sidebar)
     }
 
+    private var categoryButtons: some View {
+        let categories = taskStore.fetchActiveCategories()
+        return ForEach(categories) { category in
+            Button {
+                selectedTab = .categories
+                selectedCategory = category
+            } label: {
+                HStack {
+                    Label(category.name, systemImage: category.icon)
+                        .foregroundStyle(category.color.swiftColor)
+                    Spacer()
+                }
+            }
+            .buttonStyle(SidebarButtonStyle(isSelected: selectedTab == .categories && selectedCategory?.id == category.id))
+        }
+    }
+
     private func sidebarButton(for item: SidebarItem) -> some View {
         Button {
             selectedTab = item
+            if item == .manageCategories {
+                showingManageCategories = true
+                selectedTab = .dashboard // Reset to dashboard after triggering
+            }
         } label: {
             HStack {
                 Label(item.rawValue, systemImage: item.icon)
@@ -122,7 +142,7 @@ struct ContentView: View {
                 }
             }
         }
-        .buttonStyle(SidebarButtonStyle(isSelected: selectedTab == item))
+        .buttonStyle(SidebarButtonStyle(isSelected: selectedTab == item && item != .manageCategories))
     }
 
     struct SidebarButtonStyle: ButtonStyle {
@@ -175,14 +195,17 @@ struct ContentView: View {
             if let category = selectedCategory {
                 TaskListView(
                     tasks: taskStore.fetchTasksByCategory(category),
-                    title: category.rawValue,
+                    title: category.name,
                     taskStore: taskStore
                 )
-                .navigationTitle(category.rawValue)
+                .navigationTitle(category.name)
             } else {
                 CategoryGridView(taskStore: taskStore)
                     .navigationTitle("Categories")
             }
+        case .manageCategories:
+            DashboardView(taskStore: taskStore)
+                .navigationTitle("Dashboard")
         }
     }
 
@@ -197,26 +220,11 @@ struct ContentView: View {
             task.taskDescription.localizedCaseInsensitiveContains(searchText)
         }
     }
-
-    private func categoryColor(_ category: TaskCategory) -> Color {
-        switch category {
-        case .hvac: return .cyan
-        case .plumbing: return .blue
-        case .electrical: return .yellow
-        case .exterior: return .brown
-        case .interior: return .purple
-        case .appliances: return .gray
-        case .safety: return .red
-        case .yard: return .green
-        case .cleaning: return .mint
-        case .other: return .indigo
-        }
-    }
 }
 
 struct CategoryGridView: View {
     let taskStore: TaskStore
-    @State private var selectedCategory: TaskCategoryWrapper?
+    @State private var selectedCategory: Category?
 
     let columns = [
         GridItem(.adaptive(minimum: 200), spacing: 16)
@@ -225,9 +233,9 @@ struct CategoryGridView: View {
     var body: some View {
         ScrollView {
             LazyVGrid(columns: columns, spacing: 16) {
-                ForEach(TaskCategory.allCases, id: \.self) { category in
+                ForEach(taskStore.fetchActiveCategories()) { category in
                     Button {
-                        selectedCategory = TaskCategoryWrapper(category: category)
+                        selectedCategory = category
                     } label: {
                         CategoryCard(category: category, taskStore: taskStore)
                     }
@@ -237,11 +245,11 @@ struct CategoryGridView: View {
             .padding()
         }
         .navigationTitle("Categories")
-        .sheet(item: $selectedCategory) { wrapper in
+        .sheet(item: $selectedCategory) { category in
             NavigationStack {
                 TaskListView(
-                    tasks: taskStore.fetchTasksByCategory(wrapper.category),
-                    title: wrapper.category.rawValue,
+                    tasks: taskStore.fetchTasksByCategory(category),
+                    title: category.name,
                     taskStore: taskStore
                 )
             }
@@ -250,21 +258,16 @@ struct CategoryGridView: View {
     }
 }
 
-struct TaskCategoryWrapper: Identifiable {
-    let id = UUID()
-    let category: TaskCategory
-}
-
 struct CategoryCard: View {
-    let category: TaskCategory
+    let category: Category
     let taskStore: TaskStore
 
     var taskCount: Int {
-        taskStore.fetchTasksByCategory(category).count
+        taskStore.getCategoryTaskCount(category)
     }
 
     var overdueCount: Int {
-        taskStore.fetchTasksByCategory(category).filter { $0.isOverdue }.count
+        taskStore.getCategoryOverdueCount(category)
     }
 
     var body: some View {
@@ -272,7 +275,7 @@ struct CategoryCard: View {
             HStack {
                 Image(systemName: category.icon)
                     .font(.title2)
-                    .foregroundStyle(categoryColor)
+                    .foregroundStyle(category.color.swiftColor)
 
                 Spacer()
 
@@ -284,10 +287,11 @@ struct CategoryCard: View {
                         .padding(.vertical, 4)
                         .background(Color.red.opacity(0.8))
                         .clipShape(Capsule())
+                        .shadow(color: .red.opacity(0.3), radius: 4, x: 0, y: 2)
                 }
             }
 
-            Text(category.rawValue)
+            Text(category.name)
                 .font(.headline)
                 .foregroundStyle(.white)
 
@@ -303,28 +307,13 @@ struct CategoryCard: View {
                 .fill(Color.black.opacity(0.3))
                 .overlay(
                     RoundedRectangle(cornerRadius: 12)
-                        .fill(categoryColor.opacity(0.1))
+                        .fill(category.color.swiftColor.opacity(0.1))
                 )
         )
         .overlay(
             RoundedRectangle(cornerRadius: 12)
-                .stroke(categoryColor.opacity(0.4), lineWidth: 1.5)
+                .stroke(category.color.swiftColor.opacity(0.4), lineWidth: 1.5)
         )
-        .shadow(color: categoryColor.opacity(0.15), radius: 6, x: 0, y: 3)
-    }
-
-    private var categoryColor: Color {
-        switch category {
-        case .hvac: return .cyan
-        case .plumbing: return .blue
-        case .electrical: return .yellow
-        case .exterior: return .brown
-        case .interior: return .purple
-        case .appliances: return .gray
-        case .safety: return .red
-        case .yard: return .green
-        case .cleaning: return .mint
-        case .other: return .indigo
-        }
+        .shadow(color: category.color.swiftColor.opacity(0.15), radius: 6, x: 0, y: 3)
     }
 }

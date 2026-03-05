@@ -1,12 +1,13 @@
 import Foundation
 import SwiftData
+import SwiftUI
 
 @Model
 class MaintenanceTask {
     var id: UUID
     var name: String
     var taskDescription: String
-    var categoryRaw: String
+    var categoryID: UUID?
     var frequencyRaw: String
     var lastCompleted: Date?
     var nextDue: Date
@@ -14,11 +15,6 @@ class MaintenanceTask {
     var isActive: Bool
     var notes: String
     var estimatedDuration: Int // in minutes
-
-    var category: TaskCategory {
-        get { TaskCategory(rawValue: categoryRaw) ?? .other }
-        set { categoryRaw = newValue.rawValue }
-    }
 
     var frequency: TaskFrequency {
         get { TaskFrequency(rawValue: frequencyRaw) ?? .monthly }
@@ -29,7 +25,7 @@ class MaintenanceTask {
         id: UUID = UUID(),
         name: String,
         taskDescription: String = "",
-        category: TaskCategory,
+        categoryID: UUID? = nil,
         frequency: TaskFrequency,
         lastCompleted: Date? = nil,
         isActive: Bool = true,
@@ -39,7 +35,7 @@ class MaintenanceTask {
         self.id = id
         self.name = name
         self.taskDescription = taskDescription
-        self.categoryRaw = category.rawValue
+        self.categoryID = categoryID
         self.frequencyRaw = frequency.rawValue
         self.lastCompleted = lastCompleted
         self.isActive = isActive
@@ -79,49 +75,13 @@ class MaintenanceTask {
         if isOverdue { return .overdue }
         if daysUntilDue <= 3 { return .dueSoon }
         if daysUntilDue <= 7 { return .upcoming }
-        return .normal }
-}
-
-enum TaskCategory: String, Codable, CaseIterable {
-    case hvac = "HVAC"
-    case plumbing = "Plumbing"
-    case electrical = "Electrical"
-    case exterior = "Exterior"
-    case interior = "Interior"
-    case appliances = "Appliances"
-    case safety = "Safety"
-    case yard = "Yard & Garden"
-    case cleaning = "Cleaning"
-    case other = "Other"
-
-    var icon: String {
-        switch self {
-        case .hvac: return "fan.fill"
-        case .plumbing: return "drop.fill"
-        case .electrical: return "bolt.fill"
-        case .exterior: return "house.fill"
-        case .interior: return "paintbrush.fill"
-        case .appliances: return "washer.fill"
-        case .safety: return "checkmark.shield.fill"
-        case .yard: return "leaf.fill"
-        case .cleaning: return "sparkles"
-        case .other: return "tag.fill"
-        }
+        return .normal
     }
 
-    var color: String {
-        switch self {
-        case .hvac: return "cyan"
-        case .plumbing: return "blue"
-        case .electrical: return "yellow"
-        case .exterior: return "brown"
-        case .interior: return "purple"
-        case .appliances: return "gray"
-        case .safety: return "red"
-        case .yard: return "green"
-        case .cleaning: return "mint"
-        case .other: return "indigo"
-        }
+    // Get category from store
+    func getCategory(from store: TaskStore) -> Category? {
+        guard let categoryID = categoryID else { return nil }
+        return store.fetchCategory(by: categoryID)
     }
 }
 
@@ -173,12 +133,12 @@ enum TaskUrgency: String, CaseIterable {
     case upcoming = "Upcoming"
     case normal = "Normal"
 
-    var color: String {
+    var color: Color {
         switch self {
-        case .overdue: return "red"
-        case .dueSoon: return "orange"
-        case .upcoming: return "yellow"
-        case .normal: return "green"
+        case .overdue: return .red
+        case .dueSoon: return .orange
+        case .upcoming: return .yellow
+        case .normal: return .green
         }
     }
 

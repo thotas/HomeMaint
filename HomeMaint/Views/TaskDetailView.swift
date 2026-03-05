@@ -7,23 +7,19 @@ struct TaskDetailView: View {
 
     @State private var showingDeleteConfirmation = false
     @State private var isEditing = false
+    @State private var selectedCategory: Category?
+
+    var category: Category? {
+        task.getCategory(from: taskStore)
+    }
 
     var body: some View {
         ScrollView {
             VStack(spacing: 24) {
-                // Header
                 headerSection
-
-                // Status Section
                 statusSection
-
-                // Schedule Section
                 scheduleSection
-
-                // Notes Section
                 notesSection
-
-                // Actions
                 actionsSection
             }
             .padding()
@@ -73,34 +69,34 @@ struct TaskDetailView: View {
 
     private var headerSection: some View {
         HStack(spacing: 20) {
-            // Large Category Icon
             ZStack {
                 RoundedRectangle(cornerRadius: 20)
-                    .fill(categoryColor.opacity(0.2))
+                    .fill((category?.color.swiftColor ?? .gray).opacity(0.2))
                     .frame(width: 80, height: 80)
 
-                Image(systemName: task.category.icon)
+                Image(systemName: category?.icon ?? "tag.fill")
                     .font(.system(size: 36))
-                    .foregroundStyle(categoryColor)
+                    .foregroundStyle(category?.color.swiftColor ?? .gray)
             }
 
             VStack(alignment: .leading, spacing: 8) {
                 Text(task.name)
                     .font(.title2.bold())
+                    .foregroundStyle(.white)
 
                 HStack(spacing: 8) {
-                    Text(task.category.rawValue)
+                    Text(category?.name ?? "Unknown")
                         .font(.subheadline)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 4)
-                        .background(categoryColor.opacity(0.2))
+                        .background((category?.color.swiftColor ?? .gray).opacity(0.2))
                         .clipShape(Capsule())
 
                     Text(task.frequency.rawValue)
                         .font(.subheadline)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 4)
-                        .background(.quaternary)
+                        .background(.ultraThinMaterial)
                         .clipShape(Capsule())
                 }
             }
@@ -113,9 +109,9 @@ struct TaskDetailView: View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Status")
                 .font(.headline)
+                .foregroundStyle(.white)
 
             HStack(spacing: 16) {
-                // Current Status
                 StatusCard(
                     title: "Status",
                     value: statusText,
@@ -123,7 +119,6 @@ struct TaskDetailView: View {
                     color: statusColor
                 )
 
-                // Days Remaining
                 StatusCard(
                     title: "Time Remaining",
                     value: task.isOverdue ? "\(-task.daysUntilDue) days overdue" : "\(task.daysUntilDue) days",
@@ -132,43 +127,31 @@ struct TaskDetailView: View {
                 )
             }
 
-            // Progress Bar
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Text("Progress to next due date")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+            GeometryReader { geometry in
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(Color.gray.opacity(0.2))
+                        .frame(height: 12)
 
-                    Spacer()
-
-                    Text("\(Int(progress * 100))%")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(progressGradient)
+                        .frame(width: geometry.size.width * progress, height: 12)
                 }
-
-                GeometryReader { geometry in
-                    ZStack(alignment: .leading) {
-                        RoundedRectangle(cornerRadius: 6)
-                            .fill(.quaternary)
-                            .frame(height: 12)
-
-                        RoundedRectangle(cornerRadius: 6)
-                            .fill(progressGradient)
-                            .frame(width: geometry.size.width * progress, height: 12)
-                    }
-                }
-                .frame(height: 12)
             }
+            .frame(height: 12)
         }
         .padding()
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color.black.opacity(0.3))
+        )
     }
 
     private var scheduleSection: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Schedule")
                 .font(.headline)
+                .foregroundStyle(.white)
 
             VStack(spacing: 12) {
                 ScheduleRow(
@@ -179,6 +162,7 @@ struct TaskDetailView: View {
                 )
 
                 Divider()
+                    .background(Color.gray.opacity(0.3))
 
                 ScheduleRow(
                     label: "Next Due",
@@ -189,47 +173,54 @@ struct TaskDetailView: View {
 
                 if task.lastCompleted != nil {
                     Divider()
+                        .background(Color.gray.opacity(0.3))
 
                     HStack {
                         Text("Frequency")
                             .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(.gray)
 
                         Spacer()
 
                         Text(task.frequency.rawValue)
                             .font(.subheadline)
+                            .foregroundStyle(.white)
                     }
                 }
 
                 Divider()
+                    .background(Color.gray.opacity(0.3))
 
                 HStack {
                     Text("Estimated Time")
                         .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.gray)
 
                     Spacer()
 
                     Text("\(task.estimatedDuration) minutes")
                         .font(.subheadline)
+                        .foregroundStyle(.white)
                 }
             }
         }
         .padding()
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color.black.opacity(0.3))
+        )
     }
 
     private var notesSection: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Notes")
                 .font(.headline)
+                .foregroundStyle(.white)
 
             if task.taskDescription.isEmpty && task.notes.isEmpty {
                 Text("No notes added")
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.gray)
                     .frame(maxWidth: .infinity, alignment: .center)
                     .padding(.vertical, 20)
             } else {
@@ -237,10 +228,11 @@ struct TaskDetailView: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Description")
                             .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(.gray)
 
                         Text(task.taskDescription)
                             .font(.subheadline)
+                            .foregroundStyle(.white)
                     }
                 }
 
@@ -248,17 +240,20 @@ struct TaskDetailView: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Additional Notes")
                             .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(.gray)
 
                         Text(task.notes)
                             .font(.subheadline)
+                            .foregroundStyle(.white)
                     }
                 }
             }
         }
         .padding()
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color.black.opacity(0.3))
+        )
     }
 
     private var actionsSection: some View {
@@ -287,10 +282,10 @@ struct TaskDetailView: View {
                     Text("Edit Task")
                 }
                 .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.white)
                 .frame(maxWidth: .infinity)
                 .padding()
-                .background(.quaternary)
+                .background(Color.indigo.opacity(0.5))
                 .clipShape(RoundedRectangle(cornerRadius: 12))
             }
             .buttonStyle(.plain)
@@ -343,21 +338,6 @@ struct TaskDetailView: View {
         case .normal: return .green
         }
     }
-
-    private var categoryColor: Color {
-        switch task.category {
-        case .hvac: return .cyan
-        case .plumbing: return .blue
-        case .electrical: return .yellow
-        case .exterior: return .brown
-        case .interior: return .purple
-        case .appliances: return .gray
-        case .safety: return .red
-        case .yard: return .green
-        case .cleaning: return .mint
-        case .other: return .indigo
-        }
-    }
 }
 
 struct StatusCard: View {
@@ -377,18 +357,20 @@ struct StatusCard: View {
 
             Text(value)
                 .font(.title3.bold())
-                .foregroundStyle(.primary)
+                .foregroundStyle(.white)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
 
             Text(title)
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.gray)
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.quaternary)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.black.opacity(0.3))
+        )
     }
 }
 
@@ -406,7 +388,7 @@ struct ScheduleRow: View {
 
             Text(label)
                 .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.gray)
 
             Spacer()
 
@@ -414,15 +396,16 @@ struct ScheduleRow: View {
                 VStack(alignment: .trailing, spacing: 2) {
                     Text(date, style: .date)
                         .font(.subheadline.bold())
+                        .foregroundStyle(.white)
 
                     Text(date, style: .relative)
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.gray)
                 }
             } else {
                 Text("Not completed yet")
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.gray)
             }
         }
     }

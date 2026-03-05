@@ -62,11 +62,20 @@ enum SampleData {
         let descriptor = FetchDescriptor<MaintenanceTask>()
         guard (try? context.fetch(descriptor))?.isEmpty ?? true else { return }
 
+        let categoryDescriptor = FetchDescriptor<Category>()
+        let categories = (try? context.fetch(categoryDescriptor)) ?? []
+        var categoryIDsByName: [String: UUID] = [:]
+        for category in categories {
+            let key = category.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            categoryIDsByName[key] = category.id
+        }
+
         for taskData in tasks {
+            let categoryKey = taskData.category.rawValue.lowercased()
             let task = MaintenanceTask(
                 name: taskData.name,
                 taskDescription: taskData.description,
-                category: taskData.category,
+                categoryID: categoryIDsByName[categoryKey],
                 frequency: taskData.frequency,
                 lastCompleted: taskData.lastCompleted,
                 estimatedDuration: taskData.duration

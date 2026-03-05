@@ -6,7 +6,7 @@ struct HomeMaintApp: App {
     let container: ModelContainer
 
     init() {
-        let schema = Schema([MaintenanceTask.self])
+        let schema = Schema([MaintenanceTask.self, Category.self])
         let config = ModelConfiguration(
             schema: schema,
             isStoredInMemoryOnly: false
