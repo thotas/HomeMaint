@@ -18,6 +18,11 @@ let package = Package(
             dependencies: [],
             path: "HomeMaint",
             exclude: ["Resources"]
+        ),
+        .testTarget(
+            name: "HomeMaintTests",
+            dependencies: ["HomeMaint"],
+            path: "Tests/HomeMaintTests"
         )
     ]
 )

@@ -8,6 +8,7 @@ class MaintenanceTask {
     var name: String
     var taskDescription: String
     var categoryID: UUID?
+    @Attribute(originalName: "categoryRaw") var legacyCategoryRaw: String?
     var frequencyRaw: String
     var lastCompleted: Date?
     var nextDue: Date
@@ -36,6 +37,7 @@ class MaintenanceTask {
         self.name = name
         self.taskDescription = taskDescription
         self.categoryID = categoryID
+        self.legacyCategoryRaw = nil
         self.frequencyRaw = frequency.rawValue
         self.lastCompleted = lastCompleted
         self.isActive = isActive

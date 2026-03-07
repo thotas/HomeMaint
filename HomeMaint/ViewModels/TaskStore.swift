@@ -10,6 +10,7 @@ class TaskStore {
         self.modelContext = context
         // Insert default categories if none exist
         Category.insertDefaults(into: context)
+        migrateTasksToCategoryIDsIfNeeded()
     }
 
     // MARK: - Category Operations
@@ -214,6 +215,84 @@ class TaskStore {
     }
 
     // MARK: - Persistence
+
+    static func resolveCategoryID(
+        taskName: String,
+        legacyCategoryRaw: String?,
+        categoriesByName: [String: UUID],
+        sampleTaskCategoryByName: [String: String],
+        fallbackCategoryID: UUID?
+    ) -> UUID? {
+        let normalizedTaskName = normalizedKey(taskName)
+        let normalizedLegacy = normalizedKey(legacyCategoryRaw)
+
+        if let legacyName = normalizedLegacy {
+            if let categoryID = categoriesByName[legacyName] {
+                return categoryID
+            }
+            return fallbackCategoryID
+        }
+
+        if
+            let normalizedTaskName,
+            let sampleCategoryName = sampleTaskCategoryByName[normalizedTaskName]
+        {
+            return categoriesByName[sampleCategoryName]
+        }
+
+        return nil
+    }
+
+    private func migrateTasksToCategoryIDsIfNeeded() {
+        guard !fetchTasksWithNoCategory().isEmpty else { return }
+
+        let categoriesByName = fetchAllCategories().reduce(into: [String: UUID]()) { result, category in
+            guard let key = Self.normalizedKey(category.name), result[key] == nil else { return }
+            result[key] = category.id
+        }
+        let sampleTaskCategoryByName = SampleData.tasks.reduce(into: [String: String]()) { result, task in
+            guard
+                let taskNameKey = Self.normalizedKey(task.name),
+                let categoryNameKey = Self.normalizedKey(task.category.rawValue),
+                result[taskNameKey] == nil
+            else { return }
+            result[taskNameKey] = categoryNameKey
+        }
+        let fallbackCategoryID = categoriesByName[Self.normalizedKey("Other") ?? "other"]
+
+        var didChange = false
+
+        for task in fetchTasksWithNoCategory() {
+            let resolvedCategoryID = Self.resolveCategoryID(
+                taskName: task.name,
+                legacyCategoryRaw: task.legacyCategoryRaw,
+                categoriesByName: categoriesByName,
+                sampleTaskCategoryByName: sampleTaskCategoryByName,
+                fallbackCategoryID: fallbackCategoryID
+            )
+
+            if let resolvedCategoryID {
+                task.categoryID = resolvedCategoryID
+                didChange = true
+            }
+
+            if task.legacyCategoryRaw != nil {
+                task.legacyCategoryRaw = nil
+                didChange = true
+            }
+        }
+
+        if didChange {
+            save()
+        }
+    }
+
+    private static func normalizedKey(_ value: String?) -> String? {
+        guard let value else { return nil }
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        return trimmed.lowercased()
+    }
 
     private func normalizedCategoryName(_ name: String) -> String {
         name.trimmingCharacters(in: .whitespacesAndNewlines)
