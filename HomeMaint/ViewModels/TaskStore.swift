@@ -5,6 +5,14 @@ import SwiftUI
 @Observable
 class TaskStore {
     private var modelContext: ModelContext?
+    private var undoStack: [UndoableAction] = []
+    private var redoStack: [UndoableAction] = []
+    private let maxUndoLevels = 20
+
+    var canUndo: Bool { !undoStack.isEmpty }
+    var canRedo: Bool { !redoStack.isEmpty }
+    var undoActionName: String? { undoStack.last?.actionName }
+    var redoActionName: String? { redoStack.last?.actionName }
 
     func setContext(_ context: ModelContext) {
         self.modelContext = context
@@ -199,7 +207,25 @@ class TaskStore {
         save()
     }
 
-    func deleteTask(_ task: MaintenanceTask) {
+    func deleteTask(_ task: MaintenanceTask, saveForUndo: Bool = true) {
+        if saveForUndo {
+            // Store a copy of the task data for undo
+            let taskCopy = MaintenanceTask(
+                id: task.id,
+                name: task.name,
+                taskDescription: task.taskDescription,
+                categoryID: task.categoryID,
+                frequency: task.frequency,
+                lastCompleted: task.lastCompleted,
+                isActive: task.isActive,
+                notes: task.notes,
+                estimatedDuration: task.estimatedDuration
+            )
+            taskCopy.nextDue = task.nextDue
+
+            addToUndoStack(.deleteTask(taskCopy))
+        }
+
         modelContext?.delete(task)
         save()
     }
@@ -330,7 +356,111 @@ class TaskStore {
             try modelContext?.save()
         } catch {
             print("Failed to save: \(error.localizedDescription)")
+            ErrorManager.shared.handleError(error)
         }
+    }
+
+    // MARK: - Undo/Redo Support
+
+    private func addToUndoStack(_ action: UndoableAction) {
+        undoStack.append(action)
+        redoStack.removeAll()
+
+        // Limit undo stack size
+        if undoStack.count > maxUndoLevels {
+            undoStack.removeFirst()
+        }
+    }
+
+    func performUndo() {
+        guard let action = undoStack.popLast() else { return }
+
+        switch action {
+        case .deleteTask(let task):
+            // Re-insert the deleted task
+            modelContext?.insert(task)
+            save()
+            redoStack.append(action)
+
+        case .deleteCategory(let category, let tasks):
+            // Re-insert the deleted category and restore task associations
+            modelContext?.insert(category)
+            for task in tasks {
+                task.categoryID = category.id
+            }
+            save()
+            redoStack.append(UndoableAction.deleteCategory(category, tasks))
+
+        case .updateTask(let task, let snapshot):
+            // Restore task to previous state
+            if let currentTask = fetchAllTasks().first(where: { $0.id == task.id }) {
+                let currentSnapshot = TaskSnapshot(from: currentTask)
+                snapshot.restore(to: currentTask)
+                save()
+                redoStack.append(UndoableAction.updateTask(currentTask, currentSnapshot))
+            }
+
+        case .updateCategory(let category, let snapshot):
+            // Restore category to previous state
+            if let currentCategory = fetchAllCategories().first(where: { $0.id == category.id }) {
+                let currentSnapshot = CategorySnapshot(from: currentCategory)
+                snapshot.restore(to: currentCategory)
+                save()
+                redoStack.append(UndoableAction.updateCategory(currentCategory, currentSnapshot))
+            }
+        }
+    }
+
+    func performRedo() {
+        guard let action = redoStack.popLast() else { return }
+
+        switch action {
+        case .deleteTask(let task):
+            // Delete the task again
+            if let taskToDelete = fetchAllTasks().first(where: { $0.id == task.id }) {
+                modelContext?.delete(taskToDelete)
+                save()
+                undoStack.append(UndoableAction.deleteTask(task))
+            }
+
+        case .deleteCategory(let category, let tasks):
+            // Delete the category again
+            if let categoryToDelete = fetchAllCategories().first(where: { $0.id == category.id }) {
+                let tasksToUpdate = fetchTasksByCategory(categoryToDelete)
+                let fallbackCategory = findFallbackCategory(excluding: categoryToDelete)
+
+                for task in tasksToUpdate {
+                    task.categoryID = fallbackCategory?.id
+                }
+
+                modelContext?.delete(categoryToDelete)
+                save()
+                undoStack.append(UndoableAction.deleteCategory(category, tasks))
+            }
+
+        case .updateTask(let task, let snapshot):
+            // Apply the update again
+            if let currentTask = fetchAllTasks().first(where: { $0.id == task.id }) {
+                let currentSnapshot = TaskSnapshot(from: currentTask)
+                snapshot.restore(to: currentTask)
+                save()
+                undoStack.append(UndoableAction.updateTask(currentTask, currentSnapshot))
+            }
+
+        case .updateCategory(let category, let snapshot):
+            // Apply the update again
+            if let currentCategory = fetchAllCategories().first(where: { $0.id == category.id }) {
+                let currentSnapshot = CategorySnapshot(from: currentCategory)
+                snapshot.restore(to: currentCategory)
+                save()
+                undoStack.append(UndoableAction.updateCategory(currentCategory, currentSnapshot))
+            }
+        }
+    }
+
+    func clearUndoHistory() {
+        undoStack.removeAll()
+        redoStack.removeAll()
     }
 }
 

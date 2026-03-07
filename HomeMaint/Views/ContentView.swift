@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import UniformTypeIdentifiers
 
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
@@ -9,6 +10,13 @@ struct ContentView: View {
     @State private var showingAddTask = false
     @State private var showingManageCategories = false
     @State private var searchText = ""
+    @State private var showingExportPanel = false
+    @State private var showingImportPanel = false
+    @State private var exportManager = DataExportManager.shared
+    @State private var showingExportSuccess = false
+    @State private var showingImportSuccess = false
+    @State private var importResult: (imported: Int, skipped: Int) = (0, 0)
+    @State private var errorManager = ErrorManager.shared
 
     enum SidebarItem: String, CaseIterable, Identifiable {
         case dashboard = "Dashboard"
@@ -59,6 +67,19 @@ struct ContentView: View {
                 }
                 .keyboardShortcut("n", modifiers: .command)
             }
+
+            ToolbarItem(placement: .primaryAction) {
+                Menu {
+                    Button(action: exportTasks) {
+                        Label("Export Tasks to CSV...", systemImage: "square.and.arrow.up")
+                    }
+                    Button(action: { showingImportPanel = true }) {
+                        Label("Import Tasks from CSV...", systemImage: "square.and.arrow.down")
+                    }
+                } label: {
+                    Label("Data", systemImage: "externaldrive.connected.to.line.below")
+                }
+            }
         }
         .sheet(isPresented: $showingAddTask) {
             AddTaskView(taskStore: taskStore) { task in
@@ -69,11 +90,97 @@ struct ContentView: View {
         .sheet(isPresented: $showingManageCategories) {
             ManageCategoriesView(taskStore: taskStore)
         }
+        .fileExporter(
+            isPresented: $showingExportPanel,
+            document: CSVDocument(),
+            contentType: .commaSeparatedText,
+            defaultFilename: "HomeMaint_Export"
+        ) { result in
+            switch result {
+            case .success(let url):
+                showingExportSuccess = true
+            case .failure(let error):
+                print("Export error: \(error)")
+            }
+        }
+        .fileImporter(
+            isPresented: $showingImportPanel,
+            allowedContentTypes: [.commaSeparatedText, .plainText],
+            allowsMultipleSelection: false
+        ) { result in
+            handleImport(result)
+        }
         .onAppear {
             taskStore.setContext(modelContext)
             SampleData.insertSampleData(context: modelContext)
         }
+        .onReceive(NotificationCenter.default.publisher(for: .performUndo)) { _ in
+            taskStore.performUndo()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .performRedo)) { _ in
+            taskStore.performRedo()
+        }
         .searchable(text: $searchText, placement: .toolbar)
+        .alert("Export Successful", isPresented: $showingExportSuccess) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Tasks have been exported to CSV.")
+        }
+        .alert("Import Complete", isPresented: $showingImportSuccess) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Imported \(importResult.imported) tasks. \(importResult.skipped) tasks were skipped due to invalid data.")
+        }
+        .alert(errorManager.currentError?.errorDescription ?? "Error", isPresented: $errorManager.showingError) {
+            Button("OK", role: .cancel) {
+                errorManager.clearError()
+            }
+        } message: {
+            Text(errorManager.currentError?.recoverySuggestion ?? "")
+        }
+    }
+
+    private func exportTasks() {
+        do {
+            let tasks = taskStore.fetchAllTasks()
+            let categories = taskStore.fetchAllCategories()
+            let url = try exportManager.exportToCSV(tasks: tasks, categories: categories)
+
+            // Copy to a file that can be selected
+            let savePanel = NSSavePanel()
+            savePanel.allowedContentTypes = [.commaSeparatedText]
+            savePanel.nameFieldStringValue = url.lastPathComponent
+
+            if savePanel.runModal() == .OK, let destination = savePanel.url {
+                try? FileManager.default.copyItem(at: url, to: destination)
+                showingExportSuccess = true
+            }
+        } catch {
+            print("Export error: \(error)")
+        }
+    }
+
+    private func handleImport(_ result: Result<[URL], Error>) {
+        switch result {
+        case .success(let urls):
+            guard let url = urls.first else { return }
+
+            do {
+                let categories = taskStore.fetchAllCategories()
+                var categoryLookup: [String: UUID] = [:]
+                for category in categories {
+                    categoryLookup[category.name.lowercased()] = category.id
+                }
+
+                let exportedTasks = try exportManager.importFromCSV(url: url, categories: categories)
+                importResult = exportManager.importTasks(from: exportedTasks, categoryLookup: categoryLookup, taskStore: taskStore)
+                showingImportSuccess = true
+            } catch {
+                print("Import error: \(error)")
+            }
+        case .failure(let error):
+            print("Import error: \(error)")
+        }
     }
 
     private var sidebar: some View {
