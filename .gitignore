@@ -8,3 +8,8 @@ DerivedData
 *.dSYM.zip
 *.dSYM
 *.log
+HomeMaint.app/
+HomeMaint.png
+HomeMaint.iconset/
+HomeMaint/icon_*.png
+generate_icon.py

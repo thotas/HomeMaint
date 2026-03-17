@@ -97,7 +97,7 @@ struct ContentView: View {
             defaultFilename: "HomeMaint_Export"
         ) { result in
             switch result {
-            case .success(let url):
+            case .success:
                 showingExportSuccess = true
             case .failure(let error):
                 print("Export error: \(error)")

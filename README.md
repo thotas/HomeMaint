@@ -20,6 +20,11 @@ HomeMaint helps you stay on top of your home maintenance responsibilities by tra
 - **Sample Data**: Comes pre-loaded with 30+ common home maintenance tasks
 - **Quick Actions**: Mark tasks complete with a single click
 - **Full Edit Support**: Add, edit, and delete tasks as needed
+- **Push Notifications**: Get notified before tasks are due
+- **CSV Import/Export**: Export tasks to CSV and import from CSV files
+- **Category Management**: Create, edit, and delete custom categories
+- **Undo/Redo Support**: Undo and redo recent actions
+- **Dark Mode**: Full dark mode support
 
 ## Screenshots
 
@@ -61,10 +66,19 @@ The app features a three-column layout:
 ```bash
 git clone https://github.com/thotas/homemaint.git
 cd homemaint
-open HomeMaint.xcodeproj
 ```
 
-Then build and run with `Cmd+R` in Xcode.
+### Build
+
+```bash
+# Build from command line
+./build.sh
+
+# Or use Swift Package Manager
+swift build
+```
+
+The built app will be at `HomeMaint.app`
 
 ### Pre-built App
 
@@ -73,11 +87,11 @@ Download the latest release from the [Releases](https://github.com/thotas/homema
 ## How to Run
 
 ```bash
-# Open in Xcode
-open HomeMaint.xcodeproj
+# Run the built app
+open HomeMaint.app
 
-# Or build from command line
-xcodebuild -project HomeMaint.xcodeproj -scheme HomeMaint -configuration Release
+# Or run from source using Swift Package Manager
+swift run
 ```
 
 ## Architecture Overview
@@ -116,13 +130,22 @@ HomeMaint/
 │   │   ├── DashboardView.swift     # Statistics dashboard
 │   │   ├── TaskListView.swift      # Task list with sorting
 │   │   ├── TaskDetailView.swift    # Task detail modal
-│   │   └── AddTaskView.swift       # Add/Edit task forms
+│   │   ├── AddTaskView.swift       # Add/Edit task forms
+│   │   └── ManageCategoriesView.swift  # Category management
 │   ├── ViewModels/
 │   │   └── TaskStore.swift         # Data operations
-│   └── Models/
-│       ├── MaintenanceTask.swift   # Core model
-│       └── SampleData.swift        # Sample tasks
-├── HomeMaint.xcodeproj/            # Xcode project
+│   ├── Models/
+│   │   ├── MaintenanceTask.swift   # Core model
+│   │   ├── Category.swift          # Task categories
+│   │   ├── SampleData.swift        # Sample tasks
+│   │   ├── UndoManager.swift       # Undo/Redo support
+│   │   └── CSVDocument.swift       # CSV import/export
+│   └── Services/
+│       ├── NotificationManager.swift   # Push notifications
+│       ├── DataExportManager.swift     # Data export
+│       └── ErrorManager.swift          # Error handling
+├── Package.swift                   # Swift Package Manager config
+├── build.sh                        # Build script
 └── README.md                       # This file
 ```
 
@@ -158,19 +181,16 @@ HomeMaint/
 ## Known Limitations
 
 - No cloud sync (local storage only)
-- No push notifications (checks due dates on launch)
 - No recurring task templates
 - No photo attachments for tasks
 
 ## Roadmap
 
 - [ ] iCloud sync across devices
-- [ ] Push notifications for upcoming/overdue tasks
 - [ ] Task templates and custom frequencies
 - [ ] Photo attachments for documentation
 - [ ] iOS companion app
-- [ ] Export to CSV/PDF
-- [ ] Dark mode refinements
+- [ ] PDF export
 
 ## License
 

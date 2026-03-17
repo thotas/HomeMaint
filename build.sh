@@ -38,6 +38,7 @@ swiftc \
     HomeMaint/Models/*.swift \
     HomeMaint/ViewModels/*.swift \
     HomeMaint/Views/*.swift \
+    HomeMaint/Services/*.swift \
     HomeMaint/HomeMaintApp.swift
 
 # Create Info.plist
