@@ -26,6 +26,20 @@ HomeMaint helps you stay on top of your home maintenance responsibilities by tra
 - **Undo/Redo Support**: Undo and redo recent actions
 - **Dark Mode**: Full dark mode support
 
+## App Icon
+
+HomeMaint features a professionally designed app icon inspired by Apple's design language:
+- Modern gradient background (sky blue to indigo)
+- Stylized house with roof and door
+- Wrench badge indicating maintenance/handyman theme
+- Full support for all macOS icon sizes (16px to 1024px)
+
+The app icon is generated programmatically using Python and PIL. To regenerate the icon:
+
+```bash
+python3 generate_icon.py
+```
+
 ## Screenshots
 
 The app features a three-column layout:
@@ -79,6 +93,14 @@ swift build
 ```
 
 The built app will be at `HomeMaint.app`
+
+To install to your Applications folder:
+
+```bash
+mv HomeMaint.app ~/Applications/
+# Or to custom location
+mv HomeMaint.app ~/Applications/myApps/
+```
 
 ### Pre-built App
 
@@ -146,6 +168,7 @@ HomeMaint/
 │       └── ErrorManager.swift          # Error handling
 ├── Package.swift                   # Swift Package Manager config
 ├── build.sh                        # Build script
+├── generate_icon.py                # App icon generator
 └── README.md                       # This file
 ```
 
